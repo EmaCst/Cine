@@ -49,6 +49,7 @@ exports.create = async (req, res) => {
 };
 
 // Obtener todas las reservas
+// Obtener todas las reservas
 exports.findAll = async (req, res) => {
   try {
     const reservas = await Reserva.findAll({
@@ -62,6 +63,7 @@ exports.findAll = async (req, res) => {
           include: [
             {
               model: db.salas,
+              as: "sala", // 👈 Agregá este alias
               attributes: ["id", "nombre", "filas", "columnas"]
             }
           ]
@@ -89,6 +91,7 @@ exports.findOne = async (req, res) => {
           include: [
             {
               model: db.salas,
+              as: "sala", // 👈 Agregá este alias también acá
               attributes: ["id", "nombre", "filas", "columnas"]
             }
           ]
