@@ -64,7 +64,7 @@ exports.create = async (req, res) => {
     const totalPagar = parseFloat((subtotal - descuento).toFixed(2));
 
     // Crear pago en Stripe
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await stripe.paym.entIntents.create({
       amount: Math.round(totalPagar * 100), // Stripe usa centavos
       currency: "gtq",
       payment_method_types: ["card"]
