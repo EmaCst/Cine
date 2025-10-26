@@ -26,6 +26,10 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.ENUM("2D", "3D"),
       allowNull: true
     },
+    precio: {
+      type: Sequelize.DECIMAL(10, 2), // <-- nuevo campo para el precio
+      allowNull: false,
+    },
     peliculaId: {
       type: Sequelize.INTEGER,
       allowNull: false,

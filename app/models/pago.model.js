@@ -6,9 +6,25 @@ module.exports = (sequelize, Sequelize) => {
       primaryKey: true,
       autoIncrement: true,
     },
-    montoTotal: {
+    subtotal: {                   // <-- agregado
       type: Sequelize.FLOAT,
       allowNull: false,
+      defaultValue: 0.0,
+    },
+    iva: {
+      type: Sequelize.FLOAT,
+      allowNull: false,
+      defaultValue: 0.0,
+    },
+    descuento: {
+      type: Sequelize.FLOAT,
+      allowNull: false,
+      defaultValue: 0.0,
+    },
+    totalPagar: {
+      type: Sequelize.FLOAT,
+      allowNull: false,
+      defaultValue: 0.0,
     },
     metodoPago: {
       type: Sequelize.STRING,

@@ -10,6 +10,11 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.INTEGER,
       allowNull: false,
     },
+    iva: {
+      type: Sequelize.FLOAT,
+      allowNull: false,
+      defaultValue: 0.0,
+    },
     total: {
       type: Sequelize.FLOAT,
       allowNull: false,

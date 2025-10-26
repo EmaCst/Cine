@@ -2,10 +2,14 @@ const db = require("../models");
 const Pago = db.pagos;
 const Reserva = db.reservas;
 const Promocion = db.promociones;
+const Funcion = db.funciones;
+const Pelicula = db.peliculas;
+const Sala = db.salas;
+const Asiento = db.asientos;
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
   
 
-// Crear pago (con múltiples reservas)
+// Crear pago (con múltiples reservas, cálculo de IVA, descuento y tickets)
 exports.create = async (req, res) => {
   try {
     const { reservaIds, metodoPago, promocionId } = req.body;
@@ -14,43 +18,91 @@ exports.create = async (req, res) => {
       return res.status(400).json({ message: "reservaIds (array) y metodoPago son requeridos." });
     }
 
-    const reservas = await Reserva.findAll({ where: { id: reservaIds } });
+    // Obtener reservas junto con funcion, pelicula, sala y asiento
+    const reservas = await Reserva.findAll({
+      where: { id: reservaIds },
+      include: [
+        { 
+          model: db.funciones, 
+          as: "funcion",
+          include: [
+            { model: db.peliculas, as: "pelicula", attributes: ["titulo"] },
+            { model: db.salas, as: "sala", attributes: ["nombre"] }
+          ]
+        },
+        { model: db.asientos, as: "asiento", attributes: ["numero"] }
+      ]
+    });
+
     if (reservas.length !== reservaIds.length) {
       return res.status(404).json({ message: "Una o más reservas no fueron encontradas." });
     }
 
-    // Calcular monto base
-    let montoTotal = reservas.length * 50; // Precio fijo por boleto (puedes cambiarlo)
-
-    // Aplicar promoción si existe y está activa
-    if (promocionId) {
-      const promo = await Promocion.findByPk(promocionId);
-      if (promo && promo.activo) {
-        montoTotal -= montoTotal * promo.descuento;
+    // Calcular subtotal sumando precio de cada función (sin IVA)
+    let subtotal = 0;
+    for (const r of reservas) {
+      if (r.funcion && r.funcion.precio != null) {
+        subtotal += parseFloat(r.funcion.precio);
+      } else {
+        return res.status(400).json({ message: `Reserva ${r.id} tiene función sin precio definido.` });
       }
     }
 
+    // Calcular IVA (ej: 12%) sobre el subtotal
+    const iva = parseFloat((subtotal * 0.12).toFixed(2));
+
+    // Calcular descuento
+    let descuento = 0;
+    if (promocionId) {
+      const promo = await Promocion.findByPk(promocionId);
+      if (promo && promo.activo) {
+        descuento = parseFloat((subtotal * promo.descuento).toFixed(2));
+      }
+    }
+
+    // Total a pagar = subtotal + IVA - descuento
+    const totalPagar = parseFloat((subtotal - descuento).toFixed(2));
+
     // Crear pago en Stripe
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(montoTotal * 100), // Stripe usa centavos
-      currency: "usd",
+      amount: Math.round(totalPagar * 100), // Stripe usa centavos
+      currency: "gtq",
       payment_method_types: ["card"]
     });
 
     // Registrar el pago en la base de datos
     const nuevoPago = await Pago.create({
-      montoTotal,
+      subtotal,
+      iva,
+      descuento,
+      totalPagar,
       metodoPago,
       estado: "pendiente",
       promocionId: promocionId || null
     });
 
-    // Asociar reservas al pago
-    await Reserva.update({ pagoId: nuevoPago.id }, { where: { id: reservaIds } });
+    // Asociar reservas al pago y actualizar estado
+    await Reserva.update(
+      { pagoId: nuevoPago.id, estado: "confirmado" },
+      { where: { id: reservaIds } }
+    );
+
+    // Generar tickets
+    const tickets = reservas.map(r => ({
+      asiento: r.asiento.numero,
+      pelicula: r.funcion.pelicula.titulo,
+      fecha: r.funcion.fecha,
+      hora: r.funcion.hora,
+      formato: r.funcion.formato,
+      idioma: r.funcion.idioma,
+      subtitulos: r.funcion.subtitulos,
+      sala: r.funcion.sala.nombre
+    }));
 
     res.status(201).json({
       message: "Pago creado correctamente.",
       pago: nuevoPago,
+      tickets,
       clientSecret: paymentIntent.client_secret
     });
 
@@ -59,6 +111,7 @@ exports.create = async (req, res) => {
     res.status(500).json({ message: "Error al crear el pago", error: error.message });
   }
 };
+
 
 // Obtener todos los pagos
 exports.findAll = async (req, res) => {

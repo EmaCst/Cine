@@ -23,6 +23,9 @@ exports.create = async (req, res) => {
       total += combo.precio * item.cantidad;
     }
 
+        // Calcular IVA (ej: 12%) sobre el total
+    const iva = parseFloat((total * 0.12).toFixed(2));
+
     // Crear cargo en Stripe
     const charge = await stripe.charges.create({
       amount: Math.round(total * 100), // centavos
