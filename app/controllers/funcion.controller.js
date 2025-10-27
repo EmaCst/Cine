@@ -16,7 +16,7 @@ exports.create = async (req, res) => {
       formato,
       peliculaId,
       salaId,
-      precio,
+      precio
     } = req.body;
 
     // Validar campos requeridos
@@ -26,21 +26,12 @@ exports.create = async (req, res) => {
       !peliculaId ||
       !salaId
     ) {
-      return res
-        .status(400)
-        .send({ message: "Datos incompletos para crear función." });
+      return res.status(400).send({ message: "Datos incompletos para crear función." });
     }
 
     // Validar precio
-    if (
-      precio === undefined ||
-      precio === null ||
-      isNaN(precio) ||
-      Number(precio) <= 0
-    ) {
-      return res
-        .status(400)
-        .send({ message: "Debe especificar un precio válido." });
+    if (precio === undefined || precio === null || isNaN(precio) || Number(precio) <= 0) {
+      return res.status(400).send({ message: "Debe especificar un precio válido." });
     }
 
     // Normalizar arrays
@@ -53,9 +44,7 @@ exports.create = async (req, res) => {
     for (const f of fechasAUsar) {
       for (const h of horasAUsar) {
         // Verificar conflicto en la misma sala, fecha y hora
-        const conflicto = await Funcion.findOne({
-          where: { salaId, fecha: f, hora: h },
-        });
+        const conflicto = await Funcion.findOne({ where: { salaId, fecha: f, hora: h } });
         if (conflicto) {
           conflictos.push({ fecha: f, hora: h });
           continue;
@@ -69,7 +58,7 @@ exports.create = async (req, res) => {
           formato: formato || "2D",
           peliculaId,
           salaId,
-          precio: Number(precio),
+          precio: Number(precio)
         });
 
         funcionesCreadas.push(funcion);
@@ -78,20 +67,16 @@ exports.create = async (req, res) => {
 
     let mensaje = "Funciones creadas correctamente.";
     if (conflictos.length > 0) {
-      mensaje += ` Algunas funciones no se pudieron crear por conflictos: ${JSON.stringify(
-        conflictos
-      )}.`;
+      mensaje += ` Algunas funciones no se pudieron crear por conflictos: ${JSON.stringify(conflictos)}.`;
     }
 
     res.status(201).send({ message: mensaje, funciones: funcionesCreadas });
   } catch (err) {
-    res
-      .status(500)
-      .send({ message: err.message || "Error al crear la función." });
+    res.status(500).send({ message: err.message || "Error al crear la función." });
   }
 };
 
-// Listar todas las funciones (con película y sala incluidas)
+// ✅ Listar todas las funciones (incluye género, duración, calificación)
 exports.findAll = async (req, res) => {
   try {
     const funciones = await Funcion.findAll({
@@ -99,50 +84,64 @@ exports.findAll = async (req, res) => {
         {
           model: Pelicula,
           as: "pelicula",
-          attributes: ["id", "titulo", "sinopsis", "carteleraUrl"],
+          attributes: [
+            "id",
+            "titulo",
+            "sinopsis",
+            "carteleraUrl",
+            "genero",
+            "duracion",
+            "calificacion"
+          ]
         },
         {
           model: Sala,
           as: "sala",
-          attributes: ["id", "nombre"],
-        },
+          attributes: ["id", "nombre"]
+        }
       ],
-      order: [
-        ["fecha", "ASC"],
-        ["hora", "ASC"],
-      ],
+      order: [["fecha", "ASC"], ["hora", "ASC"]]
     });
 
     res.send(funciones);
   } catch (err) {
-    res
-      .status(500)
-      .send({ message: err.message || "Error al listar funciones." });
+    res.status(500).send({ message: err.message || "Error al listar funciones." });
   }
 };
 
-// Buscar una función por ID
+// ✅ Buscar una función por ID (también incluye los nuevos campos)
 exports.findOne = async (req, res) => {
   try {
     const id = req.params.id;
     const funcion = await Funcion.findByPk(id, {
       include: [
-        { model: Pelicula, as: "pelicula" },
-        { model: Sala, as: "sala" },
-      ],
+        {
+          model: Pelicula,
+          as: "pelicula",
+          attributes: [
+            "id",
+            "titulo",
+            "sinopsis",
+            "carteleraUrl",
+            "genero",
+            "duracion",
+            "calificacion"
+          ]
+        },
+        {
+          model: Sala,
+          as: "sala",
+          attributes: ["id", "nombre"]
+        }
+      ]
     });
 
     if (!funcion) {
-      return res
-        .status(404)
-        .send({ message: `No se encontró función con id=${id}` });
+      return res.status(404).send({ message: `No se encontró función con id=${id}` });
     }
-
     res.send(funcion);
   } catch (err) {
-    res
-      .status(500)
-      .send({ message: err.message || "Error al buscar función." });
+    res.status(500).send({ message: err.message || "Error al buscar función." });
   }
 };
 
@@ -152,16 +151,12 @@ exports.findByPeliculaYIdioma = async (req, res) => {
     const { titulo, idioma } = req.query;
 
     if (!titulo) {
-      return res
-        .status(400)
-        .send({ message: "Debe especificar el título de la película." });
+      return res.status(400).send({ message: "Debe especificar el título de la película." });
     }
 
     const pelicula = await Pelicula.findOne({ where: { titulo } });
     if (!pelicula) {
-      return res
-        .status(404)
-        .send({ message: `No se encontró la película "${titulo}".` });
+      return res.status(404).send({ message: `No se encontró la película "${titulo}".` });
     }
 
     const whereCondition = { peliculaId: pelicula.id };
@@ -170,78 +165,94 @@ exports.findByPeliculaYIdioma = async (req, res) => {
     const funciones = await Funcion.findAll({
       where: whereCondition,
       include: [
-        { model: Pelicula, as: "pelicula" },
-        { model: Sala, as: "sala" },
+        {
+          model: Pelicula,
+          as: "pelicula",
+          attributes: [
+            "id",
+            "titulo",
+            "sinopsis",
+            "carteleraUrl",
+            "genero",
+            "duracion",
+            "calificacion"
+          ]
+        },
+        {
+          model: Sala,
+          as: "sala",
+          attributes: ["id", "nombre"]
+        }
       ],
-      order: [
-        ["fecha", "ASC"],
-        ["hora", "ASC"],
-      ],
+      order: [["fecha", "ASC"], ["hora", "ASC"]]
     });
 
     res.send(funciones);
   } catch (err) {
-    res
-      .status(500)
-      .send({ message: err.message || "Error al filtrar funciones." });
+    res.status(500).send({ message: err.message || "Error al filtrar funciones." });
   }
 };
 
-// Actualizar función por ID
+// Actualizar función
 exports.update = async (req, res) => {
   try {
     const id = req.params.id;
 
-    // Validar precio si se envía
     if (req.body.precio !== undefined) {
       const precio = Number(req.body.precio);
       if (isNaN(precio) || precio <= 0) {
-        return res
-          .status(400)
-          .send({ message: "El precio debe ser un número positivo." });
+        return res.status(400).send({ message: "El precio debe ser un número positivo." });
       }
     }
 
     const [updated] = await Funcion.update(req.body, { where: { id } });
 
     if (updated === 0) {
-      return res
-        .status(404)
-        .send({ message: `No se pudo actualizar función con id=${id}` });
+      return res.status(404).send({ message: `No se pudo actualizar función con id=${id}` });
     }
 
     const funcionActualizada = await Funcion.findByPk(id, {
       include: [
-        { model: Pelicula, as: "pelicula" },
-        { model: Sala, as: "sala" },
-      ],
+        {
+          model: Pelicula,
+          as: "pelicula",
+          attributes: [
+            "id",
+            "titulo",
+            "sinopsis",
+            "carteleraUrl",
+            "genero",
+            "duracion",
+            "calificacion"
+          ]
+        },
+        {
+          model: Sala,
+          as: "sala",
+          attributes: ["id", "nombre"]
+        }
+      ]
     });
 
     res.send(funcionActualizada);
   } catch (err) {
-    res
-      .status(500)
-      .send({ message: err.message || "Error al actualizar función." });
+    res.status(500).send({ message: err.message || "Error al actualizar función." });
   }
 };
 
-// Eliminar función por ID
+// Eliminar función
 exports.delete = async (req, res) => {
   try {
     const id = req.params.id;
     const deleted = await Funcion.destroy({ where: { id } });
 
     if (!deleted) {
-      return res
-        .status(404)
-        .send({ message: `No se encontró función con id=${id}` });
+      return res.status(404).send({ message: `No se encontró función con id=${id}` });
     }
 
     res.send({ message: "Función eliminada correctamente." });
   } catch (err) {
-    res
-      .status(500)
-      .send({ message: err.message || "Error al eliminar función." });
+    res.status(500).send({ message: err.message || "Error al eliminar función." });
   }
 };
 
@@ -251,8 +262,6 @@ exports.deleteAll = async (req, res) => {
     const deleted = await Funcion.destroy({ where: {}, truncate: false });
     res.send({ message: `${deleted} funciones eliminadas.` });
   } catch (err) {
-    res
-      .status(500)
-      .send({ message: err.message || "Error al eliminar todas las funciones." });
+    res.status(500).send({ message: err.message || "Error al eliminar todas las funciones." });
   }
 };
