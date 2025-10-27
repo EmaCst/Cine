@@ -2,14 +2,9 @@ const db = require("../models");
 const Pago = db.pagos;
 const Reserva = db.reservas;
 const Promocion = db.promociones;
-const Funcion = db.funciones;
-const Pelicula = db.peliculas;
-const Sala = db.salas;
-const Asiento = db.asientos;
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-  
 
-// Crear pago (con múltiples reservas, cálculo de IVA, descuento y tickets)
+// Crear pago (múltiples reservas, cálculo de IVA, descuento y tickets)
 exports.create = async (req, res) => {
   try {
     const { reservaIds, metodoPago, promocionId } = req.body;
@@ -38,7 +33,7 @@ exports.create = async (req, res) => {
       return res.status(404).json({ message: "Una o más reservas no fueron encontradas." });
     }
 
-    // Calcular subtotal sumando precio de cada función (sin IVA)
+    // Calcular subtotal sumando precio de cada función
     let subtotal = 0;
     for (const r of reservas) {
       if (r.funcion && r.funcion.precio != null) {
@@ -48,7 +43,7 @@ exports.create = async (req, res) => {
       }
     }
 
-    // Calcular IVA (ej: 12%) sobre el subtotal
+    // Calcular IVA (12%)
     const iva = parseFloat((subtotal * 0.12).toFixed(2));
 
     // Calcular descuento
@@ -60,12 +55,12 @@ exports.create = async (req, res) => {
       }
     }
 
-    // Total a pagar = subtotal + IVA - descuento
+    // Total a pagar
     const totalPagar = parseFloat((subtotal - descuento).toFixed(2));
 
     // Crear pago en Stripe
-    const paymentIntent = await stripe.paym.entIntents.create({
-      amount: Math.round(totalPagar * 100), // Stripe usa centavos
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(totalPagar * 100),
       currency: "gtq",
       payment_method_types: ["card"]
     });
@@ -112,14 +107,13 @@ exports.create = async (req, res) => {
   }
 };
 
-
 // Obtener todos los pagos
 exports.findAll = async (req, res) => {
   try {
     const pagos = await Pago.findAll({
       include: [
-        { model: Reserva },
-        { model: Promocion, attributes: ["codigo", "descuento", "activo"] }
+        { model: Reserva, as: "reservasPago" }, // alias corregido
+        { model: Promocion, as: "promocion", attributes: ["codigo", "descuento", "activo"] }
       ]
     });
     res.json(pagos);
@@ -133,8 +127,8 @@ exports.findOne = async (req, res) => {
   try {
     const pago = await Pago.findByPk(req.params.id, {
       include: [
-        { model: Reserva },
-        { model: Promocion, attributes: ["codigo", "descuento", "activo"] }
+        { model: Reserva, as: "reservasPago" }, // alias corregido
+        { model: Promocion, as: "promocion", attributes: ["codigo", "descuento", "activo"] }
       ]
     });
 
@@ -186,3 +180,4 @@ exports.deleteAll = async (req, res) => {
     res.status(500).json({ message: "Error al eliminar pagos", error: error.message });
   }
 };
+

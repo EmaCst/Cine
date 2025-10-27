@@ -44,6 +44,10 @@ require("./app/routes/venta.routes")(app);
 require("./app/routes/sucursal.routes")(app);
 require("./app/routes/Comentario.routes")(app);
 
+const dashboardRoutes = require("./app/routes/Dashboard.routes");
+app.use("/api/dashboard", dashboardRoutes);
+
+
 // set port, listen for requests
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {

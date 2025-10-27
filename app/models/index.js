@@ -49,38 +49,33 @@ db.ventadetalles = require("./ventadetalle.model.js")(sequelize, Sequelize);
 db.sucursales    = require("./sucursal.model.js")(sequelize, Sequelize);
 db.comentarios   = require("./Comentarios.model.js")(sequelize, Sequelize);
 
-// Relaciones
-db.peliculas.hasMany(db.comentarios, { as: "comentarios", foreignKey: "peliculaId" });
-db.usuarios.hasMany(db.comentarios, { as: "comentarios", foreignKey: "usuarioId" });
-db.comentarios.belongsTo(db.peliculas, { as: "pelicula", foreignKey: "peliculaId" });
-db.comentarios.belongsTo(db.usuarios, { as: "usuario", foreignKey: "usuarioId" });
+// === Relaciones de Pago ===
+db.pagos.hasMany(db.reservas, { foreignKey: "pagoId", as: "reservasPago" }); // Alias usado para incluir reservas en pagos
+db.reservas.belongsTo(db.pagos, { foreignKey: "pagoId", as: "pago" });
 
+// Promociones
+db.promociones.hasMany(db.pagos, { foreignKey: "promocionId", as: "pagosPromocion" });
+db.pagos.belongsTo(db.promociones, { foreignKey: "promocionId", as: "promocion" });
 
-db.peliculas.hasMany(db.funciones, { as: "funciones", foreignKey: "peliculaId" });
-db.funciones.belongsTo(db.peliculas, { as: "pelicula", foreignKey: "peliculaId" });
+// === Relaciones de Reserva ===
+db.reservas.belongsTo(db.funciones, { foreignKey: "funcionId", as: "funcion" });
+db.reservas.belongsTo(db.usuarios, { foreignKey: "usuarioId", as: "usuario" });
+db.reservas.belongsTo(db.asientos, { foreignKey: "asientoId", as: "asiento" });
 
-db.salas.hasMany(db.funciones, { as: "funciones", foreignKey: "salaId" });
-db.funciones.belongsTo(db.salas, { as: "sala", foreignKey: "salaId" });
+// === Relaciones de Función ===
+db.funciones.belongsTo(db.peliculas, { foreignKey: "peliculaId", as: "pelicula" });
+db.funciones.belongsTo(db.salas, { foreignKey: "salaId", as: "sala" });
+db.funciones.hasMany(db.reservas, { foreignKey: "funcionId", as: "reservas" });
 
-db.sucursales.hasMany(db.salas, { as: "salas", foreignKey: "sucursalId" });
-db.salas.belongsTo(db.sucursales, { as: "sucursal", foreignKey: "sucursalId" });
+// === Relaciones de Asiento ===
+db.asientos.belongsTo(db.salas, { foreignKey: "salaId", as: "sala" });
+db.salas.hasMany(db.asientos, { foreignKey: "salaId", as: "asientos" });
 
+// === Relaciones de Película ===
+db.peliculas.hasMany(db.funciones, { foreignKey: "peliculaId", as: "funciones" });
 
-// ================= RELACIONES RESERVAS =================
-
-// Un usuario puede tener muchas reservas
-db.usuarios.hasMany(db.reservas, { as: "reservas", foreignKey: "usuarioId" });
-db.reservas.belongsTo(db.usuarios, { as: "usuario", foreignKey: "usuarioId" });
-
-// Una función puede tener muchas reservas
-db.funciones.hasMany(db.reservas, { as: "reservas", foreignKey: "funcionId" });
-db.reservas.belongsTo(db.funciones, { as: "funcion", foreignKey: "funcionId" });
-
-// Un asiento puede estar en muchas reservas (para distintas funciones)
-db.asientos.hasMany(db.reservas, { as: "reservas", foreignKey: "asientoId" });
-db.reservas.belongsTo(db.asientos, { as: "asiento", foreignKey: "asientoId" }); 
-// ================= RELACIÓN SALA ↔ ASIENTO =================
-db.salas.hasMany(db.asientos, { as: "asientos", foreignKey: "salaId" });
-db.asientos.belongsTo(db.salas, { as: "sala", foreignKey: "salaId" });
+// === Relaciones de Sala ===
+db.salas.belongsTo(db.sucursales, { foreignKey: "sucursalId", as: "sucursal" });
+db.sucursales.hasMany(db.salas, { foreignKey: "sucursalId", as: "salas" });
 
 module.exports = db;

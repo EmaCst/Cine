@@ -47,6 +47,7 @@ module.exports = (sequelize, Sequelize) => {
     Pago.belongsTo(models.promociones, { foreignKey: "promocionId" });
     Pago.hasMany(models.reservas, { foreignKey: "pagoId" }); // Un pago puede tener muchas reservas
   };
+  
 
   return Pago;
 };
