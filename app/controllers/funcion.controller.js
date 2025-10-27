@@ -3,92 +3,123 @@ const Funcion = db.funciones;
 const Pelicula = db.peliculas;
 const Sala = db.salas;
 
-
-// Crear nuevas funciones
+// Crear nueva función (soporta arrays de fechas y/o horas)
 exports.create = async (req, res) => {
   try {
-    const { fechas, horas, idioma, subtitulos, formato, peliculaId, salaId, precio } = req.body;
+    const {
+      fecha,
+      fechas,
+      hora,
+      horas,
+      idioma,
+      subtitulos,
+      formato,
+      peliculaId,
+      salaId,
+      precio,
+    } = req.body;
 
-    // ✅ Validación de campos obligatorios
-    if (!fechas || !Array.isArray(fechas) || fechas.length === 0) {
-      return res.status(400).send({ message: "Debe enviar al menos una fecha." });
+    // Validar campos requeridos
+    if (
+      (!fecha && (!fechas || fechas.length === 0)) ||
+      (!hora && (!horas || horas.length === 0)) ||
+      !peliculaId ||
+      !salaId
+    ) {
+      return res
+        .status(400)
+        .send({ message: "Datos incompletos para crear función." });
     }
-    if (!horas || !Array.isArray(horas) || horas.length === 0) {
-      return res.status(400).send({ message: "Debe enviar al menos una hora." });
+
+    // Validar precio
+    if (
+      precio === undefined ||
+      precio === null ||
+      isNaN(precio) ||
+      Number(precio) <= 0
+    ) {
+      return res
+        .status(400)
+        .send({ message: "Debe especificar un precio válido." });
     }
-    if (!peliculaId || !salaId) {
-      return res.status(400).send({ message: "Debe especificar la película y la sala." });
-    }
-    if (precio === undefined || precio === null || precio === "") {
-      return res.status(400).send({ message: "Debe especificar el precio de la función." });
-    }
+
+    // Normalizar arrays
+    const fechasAUsar = fechas && fechas.length > 0 ? fechas : [fecha];
+    const horasAUsar = horas && horas.length > 0 ? horas : [hora];
 
     const funcionesCreadas = [];
-    const funcionesDuplicadas = [];
+    const conflictos = [];
 
-    for (const fecha of fechas) {
-      for (const hora of horas) {
-        // 🔍 Verificar si ya existe una función en esa fecha, hora y sala
-        const existe = await Funcion.findOne({
-          where: { fecha, hora, salaId }
+    for (const f of fechasAUsar) {
+      for (const h of horasAUsar) {
+        // Verificar conflicto en la misma sala, fecha y hora
+        const conflicto = await Funcion.findOne({
+          where: { salaId, fecha: f, hora: h },
         });
-
-        if (existe) {
-          funcionesDuplicadas.push({ fecha, hora });
-          continue; // saltar esta combinación
+        if (conflicto) {
+          conflictos.push({ fecha: f, hora: h });
+          continue;
         }
 
-        // ✅ Crear nueva función si no está duplicada
-        const nuevaFuncion = await Funcion.create({
-          fecha,
-          hora,
-          idioma,
-          subtitulos,
-          formato,
+        const funcion = await Funcion.create({
+          fecha: f,
+          hora: h,
+          idioma: idioma || null,
+          subtitulos: subtitulos || false,
+          formato: formato || "2D",
           peliculaId,
           salaId,
-          precio
+          precio: Number(precio),
         });
-        funcionesCreadas.push(nuevaFuncion);
+
+        funcionesCreadas.push(funcion);
       }
     }
 
-    if (funcionesCreadas.length === 0) {
-      return res.status(400).send({
-        message: "No se pudieron crear funciones porque ya existen en esas fechas y horas.",
-        duplicadas: funcionesDuplicadas
-      });
+    let mensaje = "Funciones creadas correctamente.";
+    if (conflictos.length > 0) {
+      mensaje += ` Algunas funciones no se pudieron crear por conflictos: ${JSON.stringify(
+        conflictos
+      )}.`;
     }
 
-    res.status(201).send({
-      message: "Funciones creadas correctamente.",
-      funciones: funcionesCreadas,
-      duplicadas: funcionesDuplicadas.length > 0 ? funcionesDuplicadas : undefined
-    });
-  } catch (error) {
-    console.error("Error al crear las funciones:", error);
-    res.status(500).send({
-      message: "Ocurrió un error al crear las funciones.",
-      error: error.message
-    });
+    res.status(201).send({ message: mensaje, funciones: funcionesCreadas });
+  } catch (err) {
+    res
+      .status(500)
+      .send({ message: err.message || "Error al crear la función." });
   }
 };
 
-// Listar todas las funciones
+// Listar todas las funciones (con película y sala incluidas)
 exports.findAll = async (req, res) => {
   try {
-    const funciones = await Funcion.findAll();
-    res.status(200).send(funciones);
-  } catch (error) {
-    console.error("Error al obtener las funciones:", error);
-    res.status(500).send({
-      message: "Ocurrió un error al obtener las funciones.",
-      error: error.message
+    const funciones = await Funcion.findAll({
+      include: [
+        {
+          model: Pelicula,
+          as: "pelicula",
+          attributes: ["id", "titulo", "sinopsis", "carteleraUrl"],
+        },
+        {
+          model: Sala,
+          as: "sala",
+          attributes: ["id", "nombre"],
+        },
+      ],
+      order: [
+        ["fecha", "ASC"],
+        ["hora", "ASC"],
+      ],
     });
+
+    res.send(funciones);
+  } catch (err) {
+    res
+      .status(500)
+      .send({ message: err.message || "Error al listar funciones." });
   }
 };
-
-
 
 // Buscar una función por ID
 exports.findOne = async (req, res) => {
@@ -97,87 +128,102 @@ exports.findOne = async (req, res) => {
     const funcion = await Funcion.findByPk(id, {
       include: [
         { model: Pelicula, as: "pelicula" },
-        { model: Sala, as: "sala" }
-      ]
+        { model: Sala, as: "sala" },
+      ],
     });
 
     if (!funcion) {
-      return res.status(404).send({ message: `No se encontró función con id=${id}` });
+      return res
+        .status(404)
+        .send({ message: `No se encontró función con id=${id}` });
     }
+
     res.send(funcion);
   } catch (err) {
-    res.status(500).send({ message: err.message || "Error al buscar función." });
+    res
+      .status(500)
+      .send({ message: err.message || "Error al buscar función." });
   }
 };
 
-// 🔍 Filtrar funciones por película y opcionalmente por idioma
+// Filtrar funciones por película y opcionalmente por idioma
 exports.findByPeliculaYIdioma = async (req, res) => {
   try {
     const { titulo, idioma } = req.query;
 
     if (!titulo) {
-      return res.status(400).send({ message: "Debe especificar el título de la película." });
+      return res
+        .status(400)
+        .send({ message: "Debe especificar el título de la película." });
     }
 
-    // Buscar película por título
     const pelicula = await Pelicula.findOne({ where: { titulo } });
     if (!pelicula) {
-      return res.status(404).send({ message: `No se encontró la película "${titulo}".` });
+      return res
+        .status(404)
+        .send({ message: `No se encontró la película "${titulo}".` });
     }
 
-    // Armar condición para idioma (opcional)
     const whereCondition = { peliculaId: pelicula.id };
-    if (idioma) {
-      whereCondition.idioma = idioma;
-    }
+    if (idioma) whereCondition.idioma = idioma;
 
-    // Buscar funciones asociadas
     const funciones = await Funcion.findAll({
       where: whereCondition,
       include: [
         { model: Pelicula, as: "pelicula" },
-        { model: Sala, as: "sala" }
+        { model: Sala, as: "sala" },
       ],
-      order: [["fecha", "ASC"], ["hora", "ASC"]]
+      order: [
+        ["fecha", "ASC"],
+        ["hora", "ASC"],
+      ],
     });
 
     res.send(funciones);
   } catch (err) {
-    res.status(500).send({ message: err.message || "Error al filtrar funciones." });
+    res
+      .status(500)
+      .send({ message: err.message || "Error al filtrar funciones." });
   }
 };
-
 
 // Actualizar función por ID
 exports.update = async (req, res) => {
   try {
     const id = req.params.id;
-    const { precio } = req.body;
 
     // Validar precio si se envía
-    if (precio !== undefined && (isNaN(precio) || Number(precio) <= 0)) {
-      return res.status(400).send({ message: "El precio debe ser un número positivo." });
+    if (req.body.precio !== undefined) {
+      const precio = Number(req.body.precio);
+      if (isNaN(precio) || precio <= 0) {
+        return res
+          .status(400)
+          .send({ message: "El precio debe ser un número positivo." });
+      }
     }
 
     const [updated] = await Funcion.update(req.body, { where: { id } });
 
     if (updated === 0) {
-      return res.status(404).send({ message: `No se pudo actualizar función con id=${id}` });
+      return res
+        .status(404)
+        .send({ message: `No se pudo actualizar función con id=${id}` });
     }
 
     const funcionActualizada = await Funcion.findByPk(id, {
       include: [
         { model: Pelicula, as: "pelicula" },
-        { model: Sala, as: "sala" }
-      ]
+        { model: Sala, as: "sala" },
+      ],
     });
 
     res.send(funcionActualizada);
   } catch (err) {
-    res.status(500).send({ message: err.message || "Error al actualizar función." });
+    res
+      .status(500)
+      .send({ message: err.message || "Error al actualizar función." });
   }
 };
-
 
 // Eliminar función por ID
 exports.delete = async (req, res) => {
@@ -186,12 +232,16 @@ exports.delete = async (req, res) => {
     const deleted = await Funcion.destroy({ where: { id } });
 
     if (!deleted) {
-      return res.status(404).send({ message: `No se encontró función con id=${id}` });
+      return res
+        .status(404)
+        .send({ message: `No se encontró función con id=${id}` });
     }
 
     res.send({ message: "Función eliminada correctamente." });
   } catch (err) {
-    res.status(500).send({ message: err.message || "Error al eliminar función." });
+    res
+      .status(500)
+      .send({ message: err.message || "Error al eliminar función." });
   }
 };
 
@@ -201,6 +251,8 @@ exports.deleteAll = async (req, res) => {
     const deleted = await Funcion.destroy({ where: {}, truncate: false });
     res.send({ message: `${deleted} funciones eliminadas.` });
   } catch (err) {
-    res.status(500).send({ message: err.message || "Error al eliminar todas las funciones." });
+    res
+      .status(500)
+      .send({ message: err.message || "Error al eliminar todas las funciones." });
   }
 };
