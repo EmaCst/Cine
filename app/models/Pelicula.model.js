@@ -18,7 +18,7 @@ module.exports = (sequelize, Sequelize) => {
       allowNull: true
     },
     carteleraUrl: {
-      type: Sequelize.STRING(255),
+      type: Sequelize.STRING(500),
       allowNull: true
     },
     pais: {
