@@ -78,4 +78,10 @@ db.peliculas.hasMany(db.funciones, { foreignKey: "peliculaId", as: "funciones" }
 db.salas.belongsTo(db.sucursales, { foreignKey: "sucursalId", as: "sucursal" });
 db.sucursales.hasMany(db.salas, { foreignKey: "sucursalId", as: "salas" });
 
+// Relaciones para ventas de comida
+db.ventas.hasMany(db.ventadetalles, { foreignKey: "ventaId", as: "detalles" });
+db.ventadetalles.belongsTo(db.ventas, { foreignKey: "ventaId", as: "venta" });
+db.ventadetalles.belongsTo(db.combos, { foreignKey: "comboId", as: "combo" });
+db.ventas.belongsTo(db.usuarios, { foreignKey: "usuarioId", as: "usuario" });
+
 module.exports = db;
