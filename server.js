@@ -7,9 +7,10 @@ require('dotenv').config();  // Carga las variables del .env
 const app = express();
 
 // ✅ Configuración actualizada de CORS
-var corsOptions = {
-  origin: ["http://localhost:5173", "http://localhost:8081"],
-};
+const allowedOrigins = [
+  "http://localhost:5173", // desarrollo local
+   "https://zona404cine.vercel.app"
+];
 
 app.use(cors(corsOptions));
 
